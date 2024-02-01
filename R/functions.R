@@ -1,6 +1,7 @@
 #' @import Seurat
 #' @import SingleR
 #' @import edgeR
+#' @import Matrix
 NULL
 #> NULL
 #> 
@@ -27,34 +28,31 @@ NULL
   return(sc)
 }
 
-.getPseudobulk <- function(obj, anno, sample, keep.all.genes = FALSE, min.cell = 5, assay = "RNA") {
+.getPseudobulk <- function(obj, cluster, keep.all.genes = FALSE, min.cell = 5, assay = "RNA") {
   
-  obj$anno_sample = paste(as.character(obj@meta.data[,anno]), obj@meta.data[,sample], sep = ".")
-  a = table(obj$anno_sample)
-  a = a[a>min.cell]
-  whole.psk = lapply(names(a), function(x) {
-    if (sum(obj$anno_sample==x)>1) {
-      rowSums(obj@assays[[assay]]@counts[,obj$anno_sample==x])
+  cls = paste0("Cluster_",obj@meta.data[, cluster])
+  cls.no = table(cls)
+  cls.no = cls.no[cls.no>=min.cell]
+  psk = lapply(names(cls.no), function(x) {
+    if (sum(cls==x)>1) {
+      rowSums(obj@assays[[assay]]@counts[,cls==x])
     } else {
-      obj@assays[[assay]]@counts[,obj$anno_sample==x]
+      obj@assays[[assay]]@counts[,cls==x]
     }
     
   })
-  whole.psk = do.call(cbind, whole.psk)
-  colnames(whole.psk) = names(a)
+  psk = do.call(cbind, psk)
+  colnames(psk) = names(cls.no)
   if (keep.all.genes) {
-    whole.psk = edgeR::DGEList(counts = whole.psk)
+    psk = edgeR::DGEList(counts = psk)
   } else {
-    whole.psk = edgeR::DGEList(counts = whole.psk[rowSums(whole.psk)>0, ])
+    psk = edgeR::DGEList(counts = psk[rowSums(psk)>0, ])
   }
   
-  whole.psk = edgeR::calcNormFactors(whole.psk)
-  logtpm = log2(edgeR::cpm(whole.psk)+1)
-  s = sapply(colnames(whole.psk), function(x) strsplit(x, "[.]")[[1]])
-  s = as.data.frame(t(s))
-  colnames(s) = c("anno", "sample")
-  whole.psk$samples = cbind.data.frame(whole.psk$samples, s)
-  return(list(dgelist = whole.psk, logtpm = logtpm))
+  psk = edgeR::calcNormFactors(psk)
+  logtpm = log2(edgeR::cpm(psk)+1)
+  
+  return(list(dgelist = psk, logtpm = logtpm))
 }
 
 #' List available tissue types for reference
@@ -68,10 +66,11 @@ list.tissues <- function() {
 #' Annotate single cell at cluster level using reference built from Tabula sapiens, human protein atlas and public datasets. The annotation algorithm used is SingleR.
 #' @param query.srt query single cell data in Seurat object format
 #' @param ref.tissue reference tissue type, default is "all". Other options include "immune" and specific tissue(s). To see list of available tissues, use list.tissues(). Multiple tissues separated by "|"
-#' @param resolution resolution used to identify cell clusters, default is 0.5
+#' @param cluster user provided cluster assignment to use. it should be a column name in meta.data. if NULL, will use Seurat::FindCluster to find clusters
+#' @param resolution resolution used to identify cell clusters, Default is 0.5 if cluster is not set.
 #' @return Seurat object with predicted.celltype added to metadata
 #' @export
-cellAnno <- function(query.srt, ref.tissue = "all", resolution = 0.5) {
+cellAnno <- function(query.srt, ref.tissue = "all", cluster = NULL, resolution = 0.5) {
   if (ref.tissue == "all") {
     ref = all.ref
   } else if (ref.tissue == "immune") {
@@ -79,31 +78,37 @@ cellAnno <- function(query.srt, ref.tissue = "all", resolution = 0.5) {
   } else {
     ref = all.ref[,grepl(ref.tissue, colnames(all.ref))| colnames(all.ref) %in% c(vbls$stromal.cells, vbls$immune.cells)]
   }
-  query.srt = .scProc(query.srt, res = resolution)
-  query.srt$sample = "query"
-  psk = .getPseudobulk(obj = query.srt, sample = "sample", anno = "seurat_clusters", min.cell = 2)
+  if (is.null(cluster)) {
+    query.srt = .scProc(query.srt, res = resolution)
+    cls = paste0("Cluster_", query.srt@meta.data[, "seurat_clusters"])
+    psk = .getPseudobulk(obj = query.srt,  cluster = "seurat_clusters", min.cell = 2)
+  } else {
+    cls = paste0("Cluster_", query.srt@meta.data[, cluster])
+    psk = .getPseudobulk(obj = query.srt,  cluster = cluster, min.cell = 2)
+  }
+  
   pred = SingleR::SingleR(test = psk$logtpm, ref = ref, assay.type.ref = "logcounts", 
                           assay.type.test = "logcounts", labels = colnames(ref))
-  cluster.map = setNames(psk$dgelist$samples$anno, pred$labels)
-  query.srt$predicted.celltype = cluster.map[as.character(query.srt$seurat_clusters)]
+  cluster.map = setNames( pred$labels, colnames(psk$logtpm))
+  query.srt$predicted.celltype = cluster.map[cls]
   return(query.srt)
 }
 #' Cell-of-Origin prediction for cancer bulk RNA-seq data
 #'
 #' Predict COO using reference built from Tabula sapiens, human protein atlas and public datasets. Right now it only support prediction for solid tumor type
 #' @param logtpm.matrix query data matrix in log2-TPM
-#' @param ref reference to use, default is "all.epithelial". To see list of available tissues, use list.tissues(). Multiple tissues separated by "|"
-#' @return output of SingleR. 
+#' @param ref reference to use, default is "prostate".To see list of available tissues, use list.tissues(). Multiple tissues separated by "|". Set to "all" if not sure (for samples from metastatic sites, it is possible top hit is cell from the biopsy site). 
+#' @return output of SingleR. "labels" is the predicted cell type. 
 #' @export
-cooPredict <- function(logtpm.matrix, ref = "all.epithelial") {
-  if (ref=="all.epithelial") {
+cooPredict <- function(logtpm.matrix, ref = "prostate") {
+  if (ref=="all") {
     refdat = all.ref[,1:184]
   } else {
     refdat = all.ref[,grepl(ref, colnames(all.ref))]
   }
   pred = SingleR::SingleR(test = logtpm.matrix, ref = refdat, assay.type.ref = "logcounts",
                           assay.type.test = "logcounts",
-                          labels = colnames(ref))
+                          labels = colnames(refdat))
   return(pred)
 }
 

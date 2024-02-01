@@ -4,14 +4,16 @@
 \alias{cellAnno}
 \title{Annotation for single cell data at cluster level}
 \usage{
-cellAnno(query.srt, ref.tissue = "all", resolution = 0.5)
+cellAnno(query.srt, ref.tissue = "all", cluster = NULL, resolution = 0.5)
 }
 \arguments{
 \item{query.srt}{query single cell data in Seurat object format}
 
 \item{ref.tissue}{reference tissue type, default is "all". Other options include "immune" and specific tissue(s). To see list of available tissues, use list.tissues(). Multiple tissues separated by "|"}
 
-\item{resolution}{resolution used to identify cell clusters, default is 0.5}
+\item{cluster}{user provided cluster assignment to use. it should be a column name in meta.data. if NULL, will use Seurat::FindCluster to find clusters}
+
+\item{resolution}{resolution used to identify cell clusters, Default is 0.5 if @param cluster is not set.}
 }
 \value{
 Seurat object with predicted.celltype added to metadata

@@ -3,6 +3,7 @@
 export(cellAnno)
 export(cooPredict)
 export(list.tissues)
+import(Matrix)
 import(Seurat)
 import(SingleR)
 import(edgeR)
