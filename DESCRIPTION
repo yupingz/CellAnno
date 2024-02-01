@@ -1,0 +1,13 @@
+Package: cellAnno
+Title: Cell annotation for single cell and bulk RNA-seq
+Version: 0.0.0.9000
+Authors@R: 
+    person("Yuping", "Zhang", , "yupingz@med.umich.edu", role = "cre")
+Description: What the package does (one paragraph).
+License: `use_mit_license()`
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.2.0
+Depends: 
+    R (>= 2.10)
+LazyData: true
