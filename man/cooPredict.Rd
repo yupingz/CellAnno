@@ -12,7 +12,7 @@ cooPredict(logtpm.matrix, ref = "prostate")
 \item{ref}{reference to use, default is "prostate".To see list of available tissues, use list.tissues(). Multiple tissues separated by "|". Set to "all" if not sure (for samples from metastatic sites, it is possible top hit is cell from the biopsy site).}
 }
 \value{
-output of SingleR.
+output of SingleR. "labels" is the predicted cell type.
 }
 \description{
 Predict COO using reference built from Tabula sapiens, human protein atlas and public datasets. Right now it only support prediction for solid tumor type

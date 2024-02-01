@@ -13,7 +13,7 @@ cellAnno(query.srt, ref.tissue = "all", cluster = NULL, resolution = 0.5)
 
 \item{cluster}{user provided cluster assignment to use. it should be a column name in meta.data. if NULL, will use Seurat::FindCluster to find clusters}
 
-\item{resolution}{resolution used to identify cell clusters, Default is 0.5 if @param cluster is not set.}
+\item{resolution}{resolution used to identify cell clusters, Default is 0.5 if cluster is not set.}
 }
 \value{
 Seurat object with predicted.celltype added to metadata
