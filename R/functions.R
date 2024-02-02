@@ -68,7 +68,7 @@ list.tissues <- function() {
 #' @param ref.tissue reference tissue type, default is "all". Other options include "immune" and specific tissue(s). To see list of available tissues, use list.tissues(). Multiple tissues separated by "|"
 #' @param cluster user provided cluster assignment to use. it should be a column name in meta.data. if NULL, will use Seurat::FindCluster to find clusters
 #' @param resolution resolution used to identify cell clusters, Default is 0.5 if cluster is not set.
-#' @return Seurat object with predicted.celltype added to metadata
+#' @return Seurat object with "labels","pruned.labels" and "score" added to metadata
 #' @export
 cellAnno <- function(query.srt, ref.tissue = "all", cluster = NULL, resolution = 0.5) {
   if (ref.tissue == "all") {
@@ -89,8 +89,12 @@ cellAnno <- function(query.srt, ref.tissue = "all", cluster = NULL, resolution =
   
   pred = SingleR::SingleR(test = psk$logtpm, ref = ref, assay.type.ref = "logcounts", 
                           assay.type.test = "logcounts", labels = colnames(ref))
-  cluster.map = setNames( pred$labels, colnames(psk$logtpm))
-  query.srt$predicted.celltype = cluster.map[cls]
+  cluster.map = data.frame(cluster = colnames(psk$logtpm),labels= pred$labels,
+                           pruned.labels = pred$pruned.labels, score = pred$tuning.scores$first,
+                           stringsAsFactors = F)
+  cluster.meta = cluster.map[match(cls, cluster.map$cluster),]
+  rownames(cluster.meta) = colnames(query.srt)
+  query.srt = AddMetaData(query.srt, cluster.meta)
   return(query.srt)
 }
 #' Cell-of-Origin prediction for cancer bulk RNA-seq data

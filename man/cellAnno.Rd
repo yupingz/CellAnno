@@ -16,7 +16,7 @@ cellAnno(query.srt, ref.tissue = "all", cluster = NULL, resolution = 0.5)
 \item{resolution}{resolution used to identify cell clusters, Default is 0.5 if cluster is not set.}
 }
 \value{
-Seurat object with predicted.celltype added to metadata
+Seurat object with "labels","pruned.labels" and "score" added to metadata
 }
 \description{
 Annotate single cell at cluster level using reference built from Tabula sapiens, human protein atlas and public datasets. The annotation algorithm used is SingleR.
