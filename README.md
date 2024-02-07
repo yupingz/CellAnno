@@ -7,4 +7,5 @@ It can also be used to make Cell-of-Origin (COO) prediction from bulk RNA-seq da
 `devtools::install_github("yupingz/cellAnno")`
 
 **Functions**
-type `?cellAnno` and `?cooPredict` to see help information
+
+Type `?cellAnno` and `?cooPredict` to see help information
