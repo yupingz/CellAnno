@@ -5,6 +5,39 @@
 NULL
 #> NULL
 #> 
+
+.clusterReorder = function(cts) {
+  d = Embeddings(cts,"umap")
+  d = as.data.frame(d)
+  d$cluster = cts$seurat_clusters
+  cls.pos = aggregate(.~ cluster, FUN=mean, data = d)
+  cls = cls.pos$cluster
+  
+  cls.dis = lapply(1:nrow(cls.pos), function(i) {
+    r = t(cls.pos[,2:3]) - as.numeric(cls.pos[i,2:3])
+    colnames(r) = cls.pos$cluster
+    r = r^2
+    r = colSums(r)
+    return(sort(r))
+  })
+  names(cls.dis) = cls
+  
+  cls.ord = as.character(cls.pos$cluster[order(cls.pos$umap_1)][1])
+  
+  for (i in 1:(length(cls)-1)) {
+    cls.left = cls.dis[[as.character(cls.ord[i])]]
+    cls.left = cls.left[setdiff(cls, cls.ord)]
+    cls.left = sort(cls.left)
+    cls.ord = c(cls.ord, names(cls.left)[1])
+  }
+  
+  cls.reorder = setNames(1:length(cls),cls.ord)
+  cts$cluster = as.character(cls.reorder[as.character(cts$seurat_clusters)])
+  cts$cluster = as.numeric(cts$cluster)
+  return(cts)
+}
+
+
 .scProc <- function(sc, n = 2000, pc =30, res =0.5, normalize = TRUE, hvg = TRUE, pca = TRUE, umap = TRUE, cluster = TRUE) {
   DefaultAssay(sc) = "RNA"
   if (normalize) {
@@ -24,6 +57,7 @@ NULL
   if (cluster) {
     sc <- Seurat::FindNeighbors(sc, dims=1:pc)
     sc <- Seurat::FindClusters(sc, resolution = res)
+    sc <- .clusterReorder(cts = sc)
   }
   return(sc)
 }
@@ -88,9 +122,9 @@ cellAnno <- function(query.srt, ref.tissue = "all", cluster = NULL, resolution =
   }
   
   pred = SingleR::SingleR(test = psk$logtpm, ref = ref, assay.type.ref = "logcounts", 
-                          assay.type.test = "logcounts", labels = colnames(ref))
+                          assay.type.test = "logcounts", labels = colnames(ref), fine.tune = FALSE)
   cluster.map = data.frame(cluster = colnames(psk$logtpm),labels= pred$labels,
-                           pruned.labels = pred$pruned.labels, score = pred$tuning.scores$first,
+                           pruned.labels = pred$pruned.labels, score = apply(pred$scores, 1, max),
                            stringsAsFactors = F)
   cluster.meta = cluster.map[match(cls, cluster.map$cluster),]
   rownames(cluster.meta) = colnames(query.srt)
@@ -104,11 +138,14 @@ cellAnno <- function(query.srt, ref.tissue = "all", cluster = NULL, resolution =
 #' @param ref reference to use, default is "prostate".To see list of available tissues, use list.tissues(). Multiple tissues separated by "|". Set to "all" if not sure (for samples from metastatic sites, it is possible top hit is cell from the biopsy site). 
 #' @return output of SingleR. "labels" is the predicted cell type. 
 #' @export
-cooPredict <- function(logtpm.matrix, ref = "prostate") {
+cooPredict <- function(logtpm.matrix, ref = "all", exclude.tissues = NULL) {
   if (ref=="all") {
     refdat = all.ref[,1:184]
   } else {
     refdat = all.ref[,grepl(ref, colnames(all.ref))]
+  }
+  if (!is.null(exclude.tissues)) {
+    refdat = refdat[, !grepl(exclude.tissues, colnames(refdat))]
   }
   pred = SingleR::SingleR(test = logtpm.matrix, ref = refdat, assay.type.ref = "logcounts",
                           assay.type.test = "logcounts",
