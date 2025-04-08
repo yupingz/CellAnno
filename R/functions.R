@@ -64,26 +64,20 @@ NULL
 
 .getPseudobulk <- function(obj, cluster, keep.all.genes = FALSE, min.cell = 5, assay = "RNA") {
   
-  cls = paste0("Cluster_",obj@meta.data[, cluster])
-  cls.no = table(cls)
+  require(edgeR)
+  obj$cluster = paste0("Cluster_", obj@meta.data[, cluster])
+  cls.no = table(obj$cluster)
   cls.no = cls.no[cls.no>=min.cell]
-  psk = lapply(names(cls.no), function(x) {
-    if (sum(cls==x)>1) {
-      rowSums(obj@assays[[assay]]@counts[,cls==x])
-    } else {
-      obj@assays[[assay]]@counts[,cls==x]
-    }
-    
-  })
-  psk = do.call(cbind, psk)
+  obj = obj[, obj$cluster %in% names(cls.no)]
+  psk = Seurat::AggregateExpression(object = obj, assays = assay, return.seurat = F, group.by = "cluster")
+  psk = psk[[1]]
   colnames(psk) = names(cls.no)
   if (keep.all.genes) {
-    psk = edgeR::DGEList(counts = psk)
+    psk = DGEList(counts = psk)
   } else {
-    psk = edgeR::DGEList(counts = psk[rowSums(psk)>0, ])
+    psk = DGEList(counts = psk[rowSums(psk)>0, ])
   }
-  
-  psk = edgeR::calcNormFactors(psk)
+  psk = calcNormFactors(psk)
   logtpm = log2(edgeR::cpm(psk)+1)
   
   return(list(dgelist = psk, logtpm = logtpm))
