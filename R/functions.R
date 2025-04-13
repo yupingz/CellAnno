@@ -199,7 +199,6 @@ cooPredict <- function(logtpm.matrix, ref = "all", exclude.tissues = NULL) {
                           labels = refdat$meta$celltype)
   return(pred)
 }
-
 #' Extract top markers from Seurat::FindAllMarker results
 #'
 #' @param mks output of Seurat::FindAllMarker.
