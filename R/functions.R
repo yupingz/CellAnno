@@ -200,7 +200,12 @@ cooPredict <- function(logtpm.matrix, ref = "all", exclude.tissues = NULL) {
   return(pred)
 }
 
-
+#' Extract top markers from Seurat::FindAllMarker results
+#'
+#' @param mks output of Seurat::FindAllMarker.
+#' @param n number of genes to extract
+#' @return vector of top markers of each cluster. 
+#' @export
 getTopMarkers <- function(mks, n=5) {
   g = lapply(unique(mks$cluster), function(x) mks$gene[mks$cluster==x][1:min(n, sum(mks$cluster==x))])
   g = unique(unlist(g))
