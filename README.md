@@ -9,3 +9,7 @@ It can also be used to make Cell-of-Origin (COO) prediction from bulk RNA-seq da
 **Functions**
 
 Type `?cellAnno` and `?cooPredict` to see help information
+
+**Tutorial**
+https://rpubs.com/yupingz/1297155
+
