@@ -199,14 +199,22 @@ cooPredict <- function(logtpm.matrix, ref = "all", exclude.tissues = NULL) {
                           labels = refdat$meta$celltype)
   return(pred)
 }
-#' Extract top markers from Seurat::FindAllMarker results
+#' Extract Top Markers from Seurat FindAllMarkers Results
 #'
-#' @param mks output of Seurat::FindAllMarker.
-#' @param n number of genes to extract
-#' @return vector of top markers of each cluster. 
+#' @param mks Data frame output from Seurat FindAllMarkers, including 'gene' and 'cluster' columns.
+#' @param n Number of genes to extract per cluster. Default is 5.
+#' @return A vector of unique top markers from each cluster.
 #' @export
-getTopMarkers <- function(mks, n=5) {
-  g = lapply(unique(mks$cluster), function(x) mks$gene[mks$cluster==x][1:min(n, sum(mks$cluster==x))])
-  g = unique(unlist(g))
-  return(g)
+getTopMarkers <- function(mks, n = 5) {
+  if (!"cluster" %in% colnames(mks) || !"gene" %in% colnames(mks)) {
+    stop("The input must have 'cluster' and 'gene' columns.")
+  }
+  
+  top_genes <- lapply(unique(mks$cluster), function(cluster_id) {
+    genes <- mks$gene[mks$cluster == cluster_id]
+    genes[1:min(n, length(genes))]
+  })
+  
+  unique_genes <- unique(unlist(top_genes))
+  return(unique_genes)
 }
