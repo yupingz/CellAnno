@@ -38,7 +38,7 @@ NULL
 }
 
 
-.scProc <- function(sc, n = 2000, pc =30, res =0.5, normalize = TRUE, hvg = TRUE, pca = TRUE, umap = TRUE, cluster = TRUE) {
+.scProc <- function(sc, n = 2000, pc =30, res =0.5, normalize = TRUE, hvg = TRUE, pca = TRUE, umap = TRUE, cluster = TRUE, reorder = TRUE) {
   DefaultAssay(sc) = "RNA"
   if (normalize) {
     sc <- Seurat::NormalizeData(sc, verbose = FALSE)
@@ -57,7 +57,9 @@ NULL
   if (cluster) {
     sc <- Seurat::FindNeighbors(sc, dims=1:pc)
     sc <- Seurat::FindClusters(sc, resolution = res)
-    sc <- .clusterReorder(cts = sc)
+    if (reorder) {
+      sc <- .clusterReorder(cts = sc)
+    }
   }
   return(sc)
 }
@@ -65,7 +67,7 @@ NULL
 .getPseudobulk <- function(obj, cluster, keep.all.genes = FALSE, min.cell = 5, assay = "RNA") {
   
   require(edgeR)
-  obj$cluster = paste0("Cluster_", obj@meta.data[, cluster])
+  obj$cluster = as.character(obj@meta.data[, cluster])
   cls.no = table(obj$cluster)
   cls.no = cls.no[cls.no>=min.cell]
   obj = obj[, obj$cluster %in% names(cls.no)]
@@ -96,32 +98,75 @@ list.tissues <- function() {
 #' @param ref.tissue reference tissue type, default is "all". Other options include "immune" and specific tissue(s). To see list of available tissues, use list.tissues(). Multiple tissues separated by "|"
 #' @param cluster user provided cluster assignment to use. it should be a column name in meta.data. if NULL, will use Seurat::FindCluster to find clusters
 #' @param resolution resolution used to identify cell clusters, Default is 0.5 if cluster is not set.
+#' @param level2 if to run an additional annotation step to get detailed cell subtypes. It only works when ref.tissue = "immune".
 #' @return Seurat object with "labels","pruned.labels" and "score" added to metadata
 #' @export
-cellAnno <- function(query.srt, ref.tissue = "all", cluster = NULL, resolution = 0.5) {
-  if (ref.tissue == "all") {
+cellAnno <- function(query.srt, ref.tissue = "all", cluster = NULL, resolution = 0.5, level2 = FALSE) {
+  if (ref.tissue == "core") {
     ref = all.ref
+    ref.i = which(ref$meta$major !="specialized")
+    ref = list(expr = ref$expr[, ref.i], meta = ref$meta[ref.i, ])
+    
   } else if (ref.tissue == "immune") {
     ref = immgen.ref
   } else {
-    ref = all.ref[,grepl(ref.tissue, colnames(all.ref))| colnames(all.ref) %in% c(vbls$stromal.cells, vbls$immune.cells)]
+    ref = all.ref
+    ref.i = which(grepl(ref.tissue, ref$meta$tissue) | ref$meta$celltype %in% c(vbls$stromal.cells, vbls$immune.cells))
+    ref = list(expr = ref$expr[, ref.i], meta = ref$meta[ref.i, ])
   }
   if (is.null(cluster)) {
     query.srt = .scProc(query.srt, res = resolution)
-    cls = paste0("Cluster_", query.srt@meta.data[, "seurat_clusters"])
-    psk = .getPseudobulk(obj = query.srt,  cluster = "seurat_clusters", min.cell = 2)
+    cls = as.character(query.srt@meta.data[, "cluster"])
+    psk = .getPseudobulk(obj = query.srt,  cluster = "cluster", min.cell = 2)
   } else {
-    cls = paste0("Cluster_", query.srt@meta.data[, cluster])
+    cls =  as.character(query.srt@meta.data[, cluster])
     psk = .getPseudobulk(obj = query.srt,  cluster = cluster, min.cell = 2)
   }
-  
-  pred = SingleR::SingleR(test = psk$logtpm, ref = ref, assay.type.ref = "logcounts", 
-                          assay.type.test = "logcounts", labels = colnames(ref), fine.tune = FALSE)
+  pred = SingleR::SingleR(test = psk$logtpm, ref = ref$expr, assay.type.ref = "logcounts", 
+                          assay.type.test = "logcounts", labels = ref$meta$level1, fine.tune = FALSE)
   cluster.map = data.frame(cluster = colnames(psk$logtpm),labels= pred$labels,
                            pruned.labels = pred$pruned.labels, score = apply(pred$scores, 1, max),
                            stringsAsFactors = F)
   cluster.meta = cluster.map[match(cls, cluster.map$cluster),]
   rownames(cluster.meta) = colnames(query.srt)
+  
+  if (level2 & ref.tissue == "immune") {
+    celltypes = c("b_cells", "dendritic_cells", "granulocytes",  "macrophages",  "monocytes",  "stem_cells", "stromal_cells", "t_cells")
+    
+    celltypes = intersect(celltypes, cluster.map$labels)
+    if (length(celltypes)>0) {
+      pred.level2 = lapply(celltypes, function(x) {
+        query.subset = query.srt[,cluster.meta$labels ==x]
+        query.subset = .scProc(sc = query.subset, res = 0.5, reorder = FALSE)
+        if (length(levels(Idents(query.subset)))==1) {
+          kmean.cls = kmeans(Embeddings(query.subset, "umap"), centers = 2)
+          query.subset$seurat_clusters = kmean.cls$cluster
+        }
+        psk.subset = .getPseudobulk(obj = query.subset, cluster = "seurat_clusters",min.cell = 2)
+        ref.i = which(ref$meta$level1 == x & ref$meta$level2!="")
+        
+        p = SingleR::SingleR(test = psk.subset$logtpm, ref = ref$expr[, ref.i], assay.type.ref = "logcounts", 
+                             assay.type.test = "logcounts", labels = ref$meta$level2[ref.i], fine.tune = FALSE)
+        m = data.frame(row.names = colnames(psk.subset$logtpm), level1 = x, level2 = p$labels, level2.filter = p$pruned.labels, 
+                       level2.score = apply(p$scores, 1, max), stringsAsFactors = F)
+        cell.meta = m[as.character(query.subset$seurat_clusters),]
+        rownames(cell.meta) = colnames(query.subset)
+        return(cell.meta)
+      })
+      pred.level2 = do.call(rbind, pred.level2)
+      cluster.meta = merge(cluster.meta, pred.level2, by = "row.names", all.x = T)
+      cluster.meta$level1 = cluster.meta$labels
+      cluster.meta$level2[is.na(cluster.meta$level2)] = cluster.meta$level1[is.na(cluster.meta$level2)]
+      cluster.meta$level2.filter[is.na(cluster.meta$level2)] = cluster.meta$level1[is.na(cluster.meta$level2)]
+      rownames(cluster.meta) = cluster.meta$Row.names
+      cluster.meta = cluster.meta[,-1]
+      
+    } else {
+      print("predicted level-1 cells do not have level-2 annotation")
+    }
+  } 
+  
+  
   query.srt = AddMetaData(query.srt, cluster.meta)
   return(query.srt)
 }
@@ -133,17 +178,31 @@ cellAnno <- function(query.srt, ref.tissue = "all", cluster = NULL, resolution =
 #' @return output of SingleR. "labels" is the predicted cell type. 
 #' @export
 cooPredict <- function(logtpm.matrix, ref = "all", exclude.tissues = NULL) {
-  if (ref=="all") {
-    refdat = all.ref[,1:184]
+  refdat = all.ref
+  if (ref=="core") {
+    
+    ref.i = which(refdat$meta$major =="epithelial" )
+    ref = list(expr = refdat$expr[, ref.i], meta = refdat$meta[ref.i, ])
+    
   } else {
-    refdat = all.ref[,grepl(ref, colnames(all.ref))]
+    
+    ref.i = which(grepl(ref, refdat$meta$tissue) & refdat$meta$major =="epithelial" )
+    refdat = list(expr = refdat$expr[, ref.i], meta = refdat$meta[ref.i, ])
+    
   }
   if (!is.null(exclude.tissues)) {
-    refdat = refdat[, !grepl(exclude.tissues, colnames(refdat))]
+    ref.i = which(!grepl(exclude.tissues, refdat$meta$tissue))
+    refdat = list(expr = refdat$expr[, ref.i], meta = refdat$meta[ref.i, ])
   }
-  pred = SingleR::SingleR(test = logtpm.matrix, ref = refdat, assay.type.ref = "logcounts",
+  pred = SingleR::SingleR(test = logtpm.matrix, ref = refdat$expr, assay.type.ref = "logcounts",
                           assay.type.test = "logcounts",
-                          labels = colnames(refdat))
+                          labels = refdat$meta$celltype)
   return(pred)
 }
 
+
+getTopMarkers <- function(mks, n=5) {
+  g = lapply(unique(mks$cluster), function(x) mks$gene[mks$cluster==x][1:min(n, sum(mks$cluster==x))])
+  g = unique(unlist(g))
+  return(g)
+}
