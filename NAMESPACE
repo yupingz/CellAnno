@@ -2,6 +2,7 @@
 
 export(cellAnno)
 export(cooPredict)
+export(getTopMarkers)
 export(list.tissues)
 import(Matrix)
 import(Seurat)

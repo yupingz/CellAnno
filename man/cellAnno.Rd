@@ -4,7 +4,13 @@
 \alias{cellAnno}
 \title{Annotation for single cell data at cluster level}
 \usage{
-cellAnno(query.srt, ref.tissue = "all", cluster = NULL, resolution = 0.5)
+cellAnno(
+  query.srt,
+  ref.tissue = "all",
+  cluster = NULL,
+  resolution = 0.5,
+  level2 = FALSE
+)
 }
 \arguments{
 \item{query.srt}{query single cell data in Seurat object format}
@@ -14,6 +20,8 @@ cellAnno(query.srt, ref.tissue = "all", cluster = NULL, resolution = 0.5)
 \item{cluster}{user provided cluster assignment to use. it should be a column name in meta.data. if NULL, will use Seurat::FindCluster to find clusters}
 
 \item{resolution}{resolution used to identify cell clusters, Default is 0.5 if cluster is not set.}
+
+\item{level2}{if to run an additional annotation step to get detailed cell subtypes. It only works when ref.tissue = "immune".}
 }
 \value{
 Seurat object with "labels","pruned.labels" and "score" added to metadata

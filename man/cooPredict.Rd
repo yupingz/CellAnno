@@ -4,7 +4,7 @@
 \alias{cooPredict}
 \title{Cell-of-Origin prediction for cancer bulk RNA-seq data}
 \usage{
-cooPredict(logtpm.matrix, ref = "prostate")
+cooPredict(logtpm.matrix, ref = "all", exclude.tissues = NULL)
 }
 \arguments{
 \item{logtpm.matrix}{query data matrix in log2-TPM}
