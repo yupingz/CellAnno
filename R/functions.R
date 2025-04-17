@@ -101,7 +101,7 @@ list.tissues <- function() {
 #' @param level2 if to run an additional annotation step to get detailed cell subtypes. It only works when ref.tissue = "immune".
 #' @return Seurat object with "labels","pruned.labels" and "score" added to metadata
 #' @export
-cellAnno <- function(query.srt, ref.tissue = "all", cluster = NULL, resolution = 0.5, level2 = FALSE) {
+cellAnnotate <- function(query.srt, ref.tissue = "core", cluster = NULL, resolution = 0.5, level2 = FALSE) {
   if (ref.tissue == "core") {
     ref = all.ref
     ref.i = which(ref$meta$major !="specialized")
@@ -177,12 +177,12 @@ cellAnno <- function(query.srt, ref.tissue = "all", cluster = NULL, resolution =
 #' @param ref reference to use, default is "prostate".To see list of available tissues, use list.tissues(). Multiple tissues separated by "|". Set to "all" if not sure (for samples from metastatic sites, it is possible top hit is cell from the biopsy site). 
 #' @return output of SingleR. "labels" is the predicted cell type. 
 #' @export
-cooPredict <- function(logtpm.matrix, ref = "all", exclude.tissues = NULL) {
+cooPredict <- function(logtpm.matrix, ref = "core", exclude.tissues = NULL) {
   refdat = all.ref
   if (ref=="core") {
     
     ref.i = which(refdat$meta$major =="epithelial" )
-    ref = list(expr = refdat$expr[, ref.i], meta = refdat$meta[ref.i, ])
+    refdat = list(expr = refdat$expr[, ref.i], meta = refdat$meta[ref.i, ])
     
   } else {
     
