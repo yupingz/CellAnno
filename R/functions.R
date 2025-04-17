@@ -95,7 +95,7 @@ list.tissues <- function() {
 #'
 #' Annotate single cell at cluster level using reference built from Tabula sapiens, human protein atlas and public datasets. The annotation algorithm used is SingleR.
 #' @param query.srt query single cell data in Seurat object format
-#' @param ref.tissue reference tissue type, default is "all". Other options include "immune" and specific tissue(s). To see list of available tissues, use list.tissues(). Multiple tissues separated by "|"
+#' @param ref.tissue reference tissue type, default is "core". Other options include "immune" and specific tissue(s). To see list of available tissues, use list.tissues(). Multiple tissues separated by "|"
 #' @param cluster user provided cluster assignment to use. it should be a column name in meta.data. if NULL, will use Seurat::FindCluster to find clusters
 #' @param resolution resolution used to identify cell clusters, Default is 0.5 if cluster is not set.
 #' @param level2 if to run an additional annotation step to get detailed cell subtypes. It only works when ref.tissue = "immune".
@@ -174,7 +174,7 @@ cellAnnotate <- function(query.srt, ref.tissue = "core", cluster = NULL, resolut
 #'
 #' Predict COO using reference built from Tabula sapiens, human protein atlas and public datasets. Right now it only support prediction for solid tumor type
 #' @param logtpm.matrix query data matrix in log2-TPM
-#' @param ref reference to use, default is "prostate".To see list of available tissues, use list.tissues(). Multiple tissues separated by "|". Set to "all" if not sure (for samples from metastatic sites, it is possible top hit is cell from the biopsy site). 
+#' @param ref reference to use, default is "core".To see list of available tissues, use list.tissues(). Multiple tissues separated by "|". Set to "core" if not sure (for samples from metastatic sites, it is possible top hit is cell from the biopsy site). 
 #' @return output of SingleR. "labels" is the predicted cell type. 
 #' @export
 cooPredict <- function(logtpm.matrix, ref = "core", exclude.tissues = NULL) {

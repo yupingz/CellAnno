@@ -4,12 +4,12 @@
 \alias{cooPredict}
 \title{Cell-of-Origin prediction for cancer bulk RNA-seq data}
 \usage{
-cooPredict(logtpm.matrix, ref = "all", exclude.tissues = NULL)
+cooPredict(logtpm.matrix, ref = "core", exclude.tissues = NULL)
 }
 \arguments{
 \item{logtpm.matrix}{query data matrix in log2-TPM}
 
-\item{ref}{reference to use, default is "prostate".To see list of available tissues, use list.tissues(). Multiple tissues separated by "|". Set to "all" if not sure (for samples from metastatic sites, it is possible top hit is cell from the biopsy site).}
+\item{ref}{reference to use, default is "core".To see list of available tissues, use list.tissues(). Multiple tissues separated by "|". Set to "core" if not sure (for samples from metastatic sites, it is possible top hit is cell from the biopsy site).}
 }
 \value{
 output of SingleR. "labels" is the predicted cell type.

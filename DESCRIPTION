@@ -1,4 +1,4 @@
-Package: cellAnno
+Package: CellAnno
 Title: Cell annotation for single cell and bulk RNA-seq
 Version: 0.0.0.9000
 Authors@R: 
